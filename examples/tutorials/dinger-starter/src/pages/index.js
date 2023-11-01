@@ -5,7 +5,6 @@ import { Sidebar } from "@/components/Sidebar";
 import { Chat } from "@/components/Chat";
 
 export default function Home() {
-
   const [web5, setWeb5] = useState(null);
   const [myDid, setMyDid] = useState(null);
   const [activeRecipient, setActiveRecipient] = useState(null);
@@ -14,7 +13,7 @@ export default function Home() {
   const [sentDings, setSentDings] = useState([]);
 
   const [noteValue, setNoteValue] = useState("");
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
   const [recipientDid, setRecipientDid] = useState("");
 
   const [didCopied, setDidCopied] = useState(false);
@@ -35,7 +34,9 @@ export default function Home() {
 
   useEffect(() => {
     const initWeb5 = async () => {
-      console.log(`this log is in initWeb5`);
+      const { web5, did } = await Web5.connect();
+      setWeb5(web5);
+      setMyDid(did);
 
       if (web5 && did) {
         await configureProtocol(web5);
@@ -82,7 +83,7 @@ export default function Home() {
     e.preventDefault();
 
     if (!noteValue.trim()) {
-      setErrorMessage('Please type a message before sending.');
+      setErrorMessage("Please type a message before sending.");
       return;
     }
 
