@@ -9,10 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@web5/api": "0.8.1",
+    "@web5/api": "^0.8.1",
     "next": "13.5.4",
     "react": "^18",
     "react-dom": "^18",
+    "react-loader-spinner": "^5.4.5",
+    "react-spinners": "^0.13.8",
     "web5": "^0.0.1"
   }
 }

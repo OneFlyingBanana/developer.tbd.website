@@ -4,6 +4,10 @@ import { NoChatSelected } from "@/components/NoChatSelected";
 import { Sidebar } from "@/components/Sidebar";
 import { Chat } from "@/components/Chat";
 
+import Link from "next/link";
+
+import ClipLoader from "react-spinners/ClipLoader";
+
 export default function Home() {
   const [web5, setWeb5] = useState(null);
   const [myDid, setMyDid] = useState(null);
@@ -32,11 +36,13 @@ export default function Home() {
     return acc;
   }, {});
 
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
     const initWeb5 = async () => {
       // Initialise a web5 instance and connect to the network, allowing interaction with Web5 ecosystem
       // Also creates or connects to a DID
-      const { web5, did } = await Web5.connect({sync: '1s'});
+      const { web5, did } = await Web5.connect({ sync: "1s" });
 
       setWeb5(web5);
       setMyDid(did);
@@ -45,16 +51,17 @@ export default function Home() {
         await configureProtocol(web5);
         await fetchDings(web5, did);
       }
+      setIsLoading(false);
     };
     initWeb5();
   }, []);
 
-  // Fetch dings every 0.5 seconds
+  // Fetch dings every 2 seconds
   useEffect(() => {
     if (!web5 || !myDid) return;
     const intervalId = setInterval(async () => {
       await fetchDings(web5, myDid);
-    }, 500);
+    }, 2000);
 
     return () => clearInterval(intervalId);
   }, [web5, myDid]);
@@ -81,6 +88,7 @@ export default function Home() {
         },
       },
     };
+    console.log("Dinger protocol definition", dingerProtocolDefinition);
 
     // Check if the protocol is already configured/exists
     const { protocols, status: protocolStatus } =
@@ -92,7 +100,7 @@ export default function Home() {
         },
       });
 
-      // If the protocol is not configured/doesn't exist, configure it/create it
+    // If the protocol is not configured/doesn't exist, configure it/create it
     if (protocolStatus.code !== 200 || protocols.length === 0) {
       const { protocolStatus } = await web5.dwn.protocols.configure({
         message: {
@@ -117,16 +125,22 @@ export default function Home() {
 
   // Store the ding in the DWN
   const writeToDwn = async (ding) => {
-    const { record } = await web5.dwn.records.write({
-      data: ding,
-      message: {
-        protocol: "https://blackgirlbytes.dev/dinger-chat-protocol",
-        protocolPath: "ding",
-        schema: "https://blackgirlbytes.dev/ding",
-        recipient: recipientDid,
-      },
-    });
-    return record;
+    try {
+      const { record } = await web5.dwn.records.write({
+        data: ding,
+        message: {
+          protocol: "https://blackgirlbytes.dev/dinger-chat-protocol",
+          protocolPath: "ding",
+          schema: "https://blackgirlbytes.dev/ding",
+          recipient: recipientDid,
+        },
+      });
+      const readResult = await record.data.text();
+      console.log("Record", readResult);
+      return record;
+    } catch (error) {
+      console.error("Error writing to DWN:", error);
+    }
   };
 
   // Send the ding to the recipient
@@ -145,6 +159,7 @@ export default function Home() {
 
     const ding = constructDing();
     const record = await writeToDwn(ding);
+    console.log("Record", record);
     const { status } = await sendRecord(record);
 
     console.log("Send record status", status);
@@ -178,12 +193,12 @@ export default function Home() {
         dateSort: "createdAscending",
       },
     });
-    
+
     try {
       const results = await Promise.all(
         records.map(async (record) => record.data.json())
       );
-    
+
       if (recordStatus.code == 200) {
         const received = results.filter((result) => result?.recipient === did);
         const sent = results.filter((result) => result?.sender === did);
@@ -217,39 +232,56 @@ export default function Home() {
 
   return (
     <div className="app-container">
-      <header>
-        <h1>Dinger</h1>
-      </header>
-      <main>
-        <Sidebar
-          groupedDings={groupedDings}
-          activeRecipient={activeRecipient}
-          handleSetActiveRecipient={handleSetActiveRecipient}
-          handleCopyDid={handleCopyDid}
-          handleStartNewChat={handleStartNewChat}
-          showNewChatInput={showNewChatInput}
-          didCopied={didCopied}
-          handleConfirmNewChat={handleConfirmNewChat}
-          setRecipientDid={setRecipientDid}
-          recipientDid={recipientDid}
-        />
-        <section>
-          {activeRecipient ? (
-            <Chat
+      {isLoading ? (
+        <div className="loader-container">
+          <ClipLoader
+            color={"#000000"}
+            loading={isLoading}
+            size={150}
+            aria-label="Loading Spinner"
+            data-testid="loader"
+          />
+        </div>
+      ) : (
+        <>
+          <header>
+            <h1>Dinger</h1>
+            <Link href="/test">
+              <button>Go to Test Page</button>
+            </Link>
+          </header>
+          <main>
+            <Sidebar
+              groupedDings={groupedDings}
               activeRecipient={activeRecipient}
-              sortedDings={sortedDings}
-              myDid={myDid}
-              handleSubmit={handleSubmit}
-              noteValue={noteValue}
-              setNoteValue={setNoteValue}
-              errorMessage={errorMessage}
-              setErrorMessage={setErrorMessage}
+              handleSetActiveRecipient={handleSetActiveRecipient}
+              handleCopyDid={handleCopyDid}
+              handleStartNewChat={handleStartNewChat}
+              showNewChatInput={showNewChatInput}
+              didCopied={didCopied}
+              handleConfirmNewChat={handleConfirmNewChat}
+              setRecipientDid={setRecipientDid}
+              recipientDid={recipientDid}
             />
-          ) : (
-            <NoChatSelected />
-          )}
-        </section>
-      </main>
+            <section>
+              {activeRecipient ? (
+                <Chat
+                  activeRecipient={activeRecipient}
+                  sortedDings={sortedDings}
+                  myDid={myDid}
+                  handleSubmit={handleSubmit}
+                  noteValue={noteValue}
+                  setNoteValue={setNoteValue}
+                  errorMessage={errorMessage}
+                  setErrorMessage={setErrorMessage}
+                />
+              ) : (
+                <NoChatSelected />
+              )}
+            </section>
+          </main>
+        </>
+      )}
     </div>
   );
 }
