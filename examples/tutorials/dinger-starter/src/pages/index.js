@@ -34,7 +34,10 @@ export default function Home() {
 
   useEffect(() => {
     const initWeb5 = async () => {
-      const { web5, did } = await Web5.connect();
+      // Initialise a web5 instance and connect to the network, allowing interaction with Web5 ecosystem
+      // Also creates or connects to a DID
+      const { web5, did } = await Web5.connect({sync: '1s'});
+
       setWeb5(web5);
       setMyDid(did);
 
@@ -46,17 +49,58 @@ export default function Home() {
     initWeb5();
   }, []);
 
+  // Fetch dings every 0.5 seconds
   useEffect(() => {
     if (!web5 || !myDid) return;
     const intervalId = setInterval(async () => {
-      console.log(`this log is in intervalId`);
-    }, 2000);
+      await fetchDings(web5, myDid);
+    }, 500);
 
     return () => clearInterval(intervalId);
   }, [web5, myDid]);
 
+  // Configure the protocol
   const configureProtocol = async (web5) => {
-    console.log(`this log is in configureProtocol`);
+    // Define the protocol, its structure and grants permissions outlining who can do what (read/write)
+    const dingerProtocolDefinition = {
+      protocol: "https://blackgirlbytes.dev/dinger-chat-protocol",
+      published: true,
+      types: {
+        ding: {
+          schema: "https://blackgirlbytes.dev/ding",
+          dataFormats: ["application/json"],
+        },
+      },
+      structure: {
+        ding: {
+          $actions: [
+            { who: "anyone", can: "write" },
+            { who: "author", of: "ding", can: "read" },
+            { who: "recipient", of: "ding", can: "read" },
+          ],
+        },
+      },
+    };
+
+    // Check if the protocol is already configured/exists
+    const { protocols, status: protocolStatus } =
+      await web5.dwn.protocols.query({
+        message: {
+          filter: {
+            protocol: "https://blackgirlbytes.dev/dinger-chat-protocol",
+          },
+        },
+      });
+
+      // If the protocol is not configured/doesn't exist, configure it/create it
+    if (protocolStatus.code !== 200 || protocols.length === 0) {
+      const { protocolStatus } = await web5.dwn.protocols.configure({
+        message: {
+          definition: dingerProtocolDefinition,
+        },
+      });
+      console.log("Configure protocol status", protocolStatus);
+    }
   };
 
   const constructDing = () => {
@@ -71,12 +115,24 @@ export default function Home() {
     return ding;
   };
 
+  // Store the ding in the DWN
   const writeToDwn = async (ding) => {
-    console.log(`this log is in writeToDwn`);
+    const { record } = await web5.dwn.records.write({
+      data: ding,
+      message: {
+        protocol: "https://blackgirlbytes.dev/dinger-chat-protocol",
+        protocolPath: "ding",
+        schema: "https://blackgirlbytes.dev/ding",
+        recipient: recipientDid,
+      },
+    });
+    return record;
   };
 
+  // Send the ding to the recipient
   const sendRecord = async (record) => {
-    console.log(`this log is in sendRecord`);
+    // Sends to ALL DWNs of the recipient
+    return await record.send(recipientDid);
   };
 
   const handleSubmit = async (e) => {
@@ -111,8 +167,32 @@ export default function Home() {
     }
   };
 
+  // Fetch all dings matching the filter from the DWN
   const fetchDings = async (web5, did) => {
-    console.log(`this log is in fetchDings`);
+    const { records, status: recordStatus } = await web5.dwn.records.query({
+      message: {
+        filter: {
+          protocol: "https://blackgirlbytes.dev/dinger-chat-protocol",
+          protocolPath: "ding",
+        },
+        dateSort: "createdAscending",
+      },
+    });
+    
+    try {
+      const results = await Promise.all(
+        records.map(async (record) => record.data.json())
+      );
+    
+      if (recordStatus.code == 200) {
+        const received = results.filter((result) => result?.recipient === did);
+        const sent = results.filter((result) => result?.sender === did);
+        setReceivedDings(received);
+        setSentDings(sent);
+      }
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handleStartNewChat = () => {
