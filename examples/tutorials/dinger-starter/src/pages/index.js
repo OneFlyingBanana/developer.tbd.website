@@ -6,7 +6,7 @@ import { Chat } from "@/components/Chat";
 
 import Link from "next/link";
 
-import ClipLoader from "react-spinners/ClipLoader";
+import { CircleLoader } from "react-spinners";
 
 export default function Home() {
   const [web5, setWeb5] = useState(null);
@@ -42,14 +42,20 @@ export default function Home() {
     const initWeb5 = async () => {
       // Initialise a web5 instance and connect to the network, allowing interaction with Web5 ecosystem
       // Also creates or connects to a DID
-      const { web5, did } = await Web5.connect({ sync: "1s" });
+      console.time("Web5 connect");
+      const { web5, did } = await Web5.connect({ sync: "500ms" });
+      console.timeEnd("Web5 connect");
 
       setWeb5(web5);
       setMyDid(did);
 
       if (web5 && did) {
+        console.time("configure protocol");
         await configureProtocol(web5);
+        console.timeEnd("configure protocol");
+        console.time("fetch dings");
         await fetchDings(web5, did);
+        console.timeEnd("fetch dings");
       }
       setIsLoading(false);
     };
@@ -231,57 +237,60 @@ export default function Home() {
   };
 
   return (
-    <div className="app-container">
-      {isLoading ? (
-        <div className="loader-container">
-          <ClipLoader
-            color={"#000000"}
-            loading={isLoading}
-            size={150}
-            aria-label="Loading Spinner"
-            data-testid="loader"
-          />
-        </div>
-      ) : (
-        <>
-          <header>
-            <h1>Dinger</h1>
-            <Link href="/test">
-              <button>Go to Test Page</button>
-            </Link>
-          </header>
-          <main>
-            <Sidebar
-              groupedDings={groupedDings}
-              activeRecipient={activeRecipient}
-              handleSetActiveRecipient={handleSetActiveRecipient}
-              handleCopyDid={handleCopyDid}
-              handleStartNewChat={handleStartNewChat}
-              showNewChatInput={showNewChatInput}
-              didCopied={didCopied}
-              handleConfirmNewChat={handleConfirmNewChat}
-              setRecipientDid={setRecipientDid}
-              recipientDid={recipientDid}
+      <div className="app-container">
+        {isLoading ? (
+          <div className="loader-container">
+            <CircleLoader
+              color={"#000000"}
+              loading={isLoading}
+              size={150}
+              aria-label="Loading Spinner"
+              data-testid="loader"
+              margin={2}
             />
-            <section>
-              {activeRecipient ? (
-                <Chat
-                  activeRecipient={activeRecipient}
-                  sortedDings={sortedDings}
-                  myDid={myDid}
-                  handleSubmit={handleSubmit}
-                  noteValue={noteValue}
-                  setNoteValue={setNoteValue}
-                  errorMessage={errorMessage}
-                  setErrorMessage={setErrorMessage}
-                />
-              ) : (
-                <NoChatSelected />
-              )}
-            </section>
-          </main>
-        </>
-      )}
-    </div>
+            <p>  </p>
+            <p>Loading Web5 ...</p>
+          </div>
+        ) : (
+          <>
+            <header>
+              <h1>Dinger</h1>
+              <Link href="/test">
+                <button>Go to Test Page</button>
+              </Link>
+            </header>
+            <main>
+              <Sidebar
+                groupedDings={groupedDings}
+                activeRecipient={activeRecipient}
+                handleSetActiveRecipient={handleSetActiveRecipient}
+                handleCopyDid={handleCopyDid}
+                handleStartNewChat={handleStartNewChat}
+                showNewChatInput={showNewChatInput}
+                didCopied={didCopied}
+                handleConfirmNewChat={handleConfirmNewChat}
+                setRecipientDid={setRecipientDid}
+                recipientDid={recipientDid}
+              />
+              <section>
+                {activeRecipient ? (
+                  <Chat
+                    activeRecipient={activeRecipient}
+                    sortedDings={sortedDings}
+                    myDid={myDid}
+                    handleSubmit={handleSubmit}
+                    noteValue={noteValue}
+                    setNoteValue={setNoteValue}
+                    errorMessage={errorMessage}
+                    setErrorMessage={setErrorMessage}
+                  />
+                ) : (
+                  <NoChatSelected />
+                )}
+              </section>
+            </main>
+          </>
+        )}
+      </div>
   );
 }
