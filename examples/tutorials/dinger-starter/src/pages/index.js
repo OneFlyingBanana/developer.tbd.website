@@ -8,10 +8,13 @@ import Link from "next/link";
 
 import { CircleLoader } from "react-spinners";
 
+import axios from "axios";
+
 export default function Home() {
   const [web5, setWeb5] = useState(null);
   const [myDid, setMyDid] = useState(null);
   const [activeRecipient, setActiveRecipient] = useState(null);
+  const [myDidDocument, setMyDidDocument] = useState(null);
 
   const [receivedDings, setReceivedDings] = useState([]);
   const [sentDings, setSentDings] = useState([]);
@@ -42,20 +45,17 @@ export default function Home() {
     const initWeb5 = async () => {
       // Initialise a web5 instance and connect to the network, allowing interaction with Web5 ecosystem
       // Also creates or connects to a DID
-      console.time("Web5 connect");
       const { web5, did } = await Web5.connect({ sync: "500ms" });
-      console.timeEnd("Web5 connect");
+
+      // const didDocument = await web5.did.resolve(did);
+      // console.log("DID Document", didDocument);
 
       setWeb5(web5);
       setMyDid(did);
 
       if (web5 && did) {
-        console.time("configure protocol");
         await configureProtocol(web5);
-        console.timeEnd("configure protocol");
-        console.time("fetch dings");
         await fetchDings(web5, did);
-        console.timeEnd("fetch dings");
       }
       setIsLoading(false);
     };
@@ -94,7 +94,7 @@ export default function Home() {
         },
       },
     };
-    console.log("Dinger protocol definition", dingerProtocolDefinition);
+    // console.log("Dinger protocol definition", dingerProtocolDefinition);
 
     // Check if the protocol is already configured/exists
     const { protocols, status: protocolStatus } =
@@ -216,6 +216,29 @@ export default function Home() {
     }
   };
 
+  const resolveDid = async (did) => {
+    try {
+      const response = await axios.get(
+        `https://dev.uniresolver.io/1.0/identifiers/${did}`
+      );
+      // console.log("Response", response);
+  
+      const data = JSON.stringify(response.data, null, 2); // Format the data with 2 space indentation
+      const blob = new Blob([data], { type: 'text/plain' }); // Create a blob from the data
+      const url = URL.createObjectURL(blob); // Create a URL from the blob
+  
+      const link = document.createElement('a'); // Create a link element
+      link.href = url; // Set the href to the blob URL
+      link.download = 'response.txt'; // Set the filename
+      link.click(); // Trigger the download
+  
+      setMyDidDocument(response.data);
+      // console.log("DID Document", myDidDocument);
+    } catch (error) {
+      console.error("Error resolving DID: ", error);
+    }
+  };
+
   const handleStartNewChat = () => {
     setActiveRecipient(null);
     setShowNewChatInput(true);
@@ -237,60 +260,62 @@ export default function Home() {
   };
 
   return (
-      <div className="app-container">
-        {isLoading ? (
-          <div className="loader-container">
-            <CircleLoader
-              color={"#000000"}
-              loading={isLoading}
-              size={150}
-              aria-label="Loading Spinner"
-              data-testid="loader"
-              margin={2}
+    <div className="app-container">
+      {isLoading ? (
+        <div className="loader-container">
+          <CircleLoader
+            color={"#000000"}
+            loading={isLoading}
+            size={150}
+            aria-label="Loading Spinner"
+            data-testid="loader"
+            margin={2}
+          />
+          <p> </p>
+          <p>Loading Web5 ...</p>
+        </div>
+      ) : (
+        <>
+          <header>
+            <h1>Dinger</h1>
+            <Link href="/test">
+              <button>Go to Test Page</button>
+            </Link>
+            <p style={{ wordWrap: 'break-word' }}>My did : {myDid}</p>
+            <button onClick={() => resolveDid(myDid)}>Resolve and download my DID resolution</button>
+          </header>
+          <main>
+            <Sidebar
+              groupedDings={groupedDings}
+              activeRecipient={activeRecipient}
+              handleSetActiveRecipient={handleSetActiveRecipient}
+              handleCopyDid={handleCopyDid}
+              handleStartNewChat={handleStartNewChat}
+              showNewChatInput={showNewChatInput}
+              didCopied={didCopied}
+              handleConfirmNewChat={handleConfirmNewChat}
+              setRecipientDid={setRecipientDid}
+              recipientDid={recipientDid}
             />
-            <p>  </p>
-            <p>Loading Web5 ...</p>
-          </div>
-        ) : (
-          <>
-            <header>
-              <h1>Dinger</h1>
-              <Link href="/test">
-                <button>Go to Test Page</button>
-              </Link>
-            </header>
-            <main>
-              <Sidebar
-                groupedDings={groupedDings}
-                activeRecipient={activeRecipient}
-                handleSetActiveRecipient={handleSetActiveRecipient}
-                handleCopyDid={handleCopyDid}
-                handleStartNewChat={handleStartNewChat}
-                showNewChatInput={showNewChatInput}
-                didCopied={didCopied}
-                handleConfirmNewChat={handleConfirmNewChat}
-                setRecipientDid={setRecipientDid}
-                recipientDid={recipientDid}
-              />
-              <section>
-                {activeRecipient ? (
-                  <Chat
-                    activeRecipient={activeRecipient}
-                    sortedDings={sortedDings}
-                    myDid={myDid}
-                    handleSubmit={handleSubmit}
-                    noteValue={noteValue}
-                    setNoteValue={setNoteValue}
-                    errorMessage={errorMessage}
-                    setErrorMessage={setErrorMessage}
-                  />
-                ) : (
-                  <NoChatSelected />
-                )}
-              </section>
-            </main>
-          </>
-        )}
-      </div>
+            <section>
+              {activeRecipient ? (
+                <Chat
+                  activeRecipient={activeRecipient}
+                  sortedDings={sortedDings}
+                  myDid={myDid}
+                  handleSubmit={handleSubmit}
+                  noteValue={noteValue}
+                  setNoteValue={setNoteValue}
+                  errorMessage={errorMessage}
+                  setErrorMessage={setErrorMessage}
+                />
+              ) : (
+                <NoChatSelected />
+              )}
+            </section>
+          </main>
+        </>
+      )}
+    </div>
   );
 }

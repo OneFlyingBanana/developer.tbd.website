@@ -43,6 +43,9 @@ export default function Home() {
         await configureProtocol(web5);
         await fetchDings(web5, did);
       }
+
+      const didDocument = await web5.did.resolve(did);
+      console.log("DID Document", didDocument);
     };
     initWeb5();
   }, []);
